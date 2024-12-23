@@ -161,7 +161,7 @@ class HexPlaneField(nn.Module):
         """Computes and returns the densities."""
         # breakpoint()
         pts = normalize_aabb(pts, self.aabb)
-        pts = torch.cat((pts, timestamps), dim=-1)  # [n_rays, n_samples, 4]
+        # pts = torch.cat((pts, timestamps), dim=-1)  # [n_rays, n_samples, 4]
 
         pts = pts.reshape(-1, pts.shape[-1])
         features = interpolate_ms_features(
@@ -178,6 +178,6 @@ class HexPlaneField(nn.Module):
                 pts: torch.Tensor,
                 timestamps: Optional[torch.Tensor] = None):
 
-        features = self.get_density(pts, timestamps)
+        features = self.get_density(pts)
 
         return features

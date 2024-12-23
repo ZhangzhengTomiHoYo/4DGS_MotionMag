@@ -33,11 +33,11 @@ class FourDGSdataset(Dataset):
                 T = caminfo.T
                 FovX = caminfo.FovX
                 FovY = caminfo.FovY
-                time = caminfo.time
+                # time = caminfo.time
     
                 mask = caminfo.mask
             return Camera(colmap_id=index,R=R,T=T,FoVx=FovX,FoVy=FovY,image=image,gt_alpha_mask=None,
-                              image_name=f"{index}",uid=index,data_device=torch.device("cuda"),time=time,
+                              image_name=f"{index}",uid=index,data_device=torch.device("cuda"),
                               mask=mask)
         else:
             return self.dataset[index]

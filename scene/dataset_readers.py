@@ -41,7 +41,7 @@ class CameraInfo(NamedTuple):
     image_name: str
     width: int
     height: int
-    time : float
+    # time : float
     mask: np.array
    
 class SceneInfo(NamedTuple):
@@ -51,7 +51,7 @@ class SceneInfo(NamedTuple):
     video_cameras: list
     nerf_normalization: dict
     ply_path: str
-    maxtime: int
+    # maxtime: int
 
 def getNerfppNorm(cam_info):
     def get_center_and_diag(cam_centers):
@@ -197,7 +197,7 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
                            nerf_normalization=nerf_normalization,
                            ply_path=ply_path)
     return scene_info
-def generateCamerasFromTransforms(path, template_transformsfile, extension, maxtime):
+def generateCamerasFromTransforms(path, template_transformsfile, extension):
     trans_t = lambda t : torch.Tensor([
     [1,0,0,0],
     [0,1,0,0],
@@ -224,7 +224,7 @@ def generateCamerasFromTransforms(path, template_transformsfile, extension, maxt
     cam_infos = []
     # generate render poses and times
     render_poses = torch.stack([pose_spherical(angle, -30.0, 4.0) for angle in np.linspace(-180,180,160+1)[:-1]], 0)
-    render_times = torch.linspace(0,maxtime,render_poses.shape[0])
+    # render_times = torch.linspace(0,maxtime,render_poses.shape[0])
     with open(os.path.join(path, template_transformsfile)) as json_file:
         template_json = json.load(json_file)
         try:
@@ -243,8 +243,8 @@ def generateCamerasFromTransforms(path, template_transformsfile, extension, maxt
         image = PILtoTorch(image,(800,800))
         break
     # format information
-    for idx, (time, poses) in enumerate(zip(render_times,render_poses)):
-        time = time/maxtime
+    for idx, poses in enumerate(render_poses):
+        # time = time/maxtime
         matrix = np.linalg.inv(np.array(poses))
         R = -np.transpose(matrix[:3,:3])
         R[:,0] = -R[:,0]
@@ -254,7 +254,8 @@ def generateCamerasFromTransforms(path, template_transformsfile, extension, maxt
         FovX = fovx
         cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                             image_path=None, image_name=None, width=image.shape[1], height=image.shape[2],
-                            time = time, mask=None))
+                            # time = time, mask=None))
+                            mask = None))
     return cam_infos
 def readCamerasFromTransforms(path, transformsfile, white_background, extension=".png", mapper = {}):
     cam_infos = []
@@ -268,7 +269,7 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
         frames = contents["frames"]
         for idx, frame in enumerate(frames):
             cam_name = os.path.join(path, frame["file_path"] + extension)
-            time = mapper[frame["time"]]
+            # time = mapper[frame["time"]]
             matrix = np.linalg.inv(np.array(frame["transform_matrix"]))
             R = -np.transpose(matrix[:3,:3])
             R[:,0] = -R[:,0]
@@ -292,10 +293,12 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
 
             cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
                             image_path=image_path, image_name=image_name, width=image.shape[1], height=image.shape[2],
-                            time = time, mask=None))
+                            # time = time, mask=None))
+                            mask=None))
             
     return cam_infos
 def read_timeline(path):
+    """ 不会被使用 """
     with open(os.path.join(path, "transforms_train.json")) as json_file:
         train_json = json.load(json_file)
     with open(os.path.join(path, "transforms_test.json")) as json_file:
@@ -311,13 +314,16 @@ def read_timeline(path):
 
     return timestamp_mapper, max_time_float
 def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
-    timestamp_mapper, max_time = read_timeline(path)
+    """ 不再读取时间 """
+    # timestamp_mapper, max_time = read_timeline(path)
     print("Reading Training Transforms")
-    train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", white_background, extension, timestamp_mapper)
+    # train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", white_background, extension, timestamp_mapper)
+    train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", white_background, extension)
     print("Reading Test Transforms")
-    test_cam_infos = readCamerasFromTransforms(path, "transforms_test.json", white_background, extension, timestamp_mapper)
+    # test_cam_infos = readCamerasFromTransforms(path, "transforms_test.json", white_background, extension, timestamp_mapper)
+    test_cam_infos = readCamerasFromTransforms(path, "transforms_test.json", white_background, extension)
     print("Generating Video Transforms")
-    video_cam_infos = generateCamerasFromTransforms(path, "transforms_train.json", extension, max_time)
+    video_cam_infos = generateCamerasFromTransforms(path, "transforms_train.json", extension)
     if not eval:
         train_cam_infos.extend(test_cam_infos)
         test_cam_infos = []
@@ -347,7 +353,7 @@ def readNerfSyntheticInfo(path, white_background, eval, extension=".png"):
                            video_cameras=video_cam_infos,
                            nerf_normalization=nerf_normalization,
                            ply_path=ply_path,
-                           maxtime=max_time
+                           # maxtime=max_time
                            )
     return scene_info
 def format_infos(dataset,split):

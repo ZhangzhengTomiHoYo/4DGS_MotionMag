@@ -63,7 +63,7 @@ class Scene:
             dataset_type="MultipleView"
         else:
             assert False, "Could not recognize scene type!"
-        self.maxtime = scene_info.maxtime
+        # self.maxtime = scene_info.maxtime
         self.dataset_type = dataset_type
         self.cameras_extent = scene_info.nerf_normalization["radius"]
         print("Loading Training Cameras")
@@ -91,7 +91,9 @@ class Scene:
                                                     "iteration_" + str(self.loaded_iter),
                                                    ))
         else:
-            self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent, self.maxtime)
+            """ commit 1 这个函数里并没有maxtime 因此删去该参数也没有任何影响 """
+            # self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent, self.maxtime)
+            self.gaussians.create_from_pcd(scene_info.point_cloud, self.cameras_extent)
 
     def save(self, iteration, stage):
         if stage == "coarse":

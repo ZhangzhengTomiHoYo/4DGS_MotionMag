@@ -29,7 +29,8 @@ class Deformation(nn.Module):
         # self.args.empty_voxel=True
         if self.args.empty_voxel:
             self.empty_voxel = DenseGrid(channels=1, world_size=[64,64,64])
-        if self.args.static_mlp:
+        # if self.args.static_mlp:
+        if True:
             self.static_mlp = nn.Sequential(nn.ReLU(),nn.Linear(self.W,self.W),nn.ReLU(),nn.Linear(self.W, 1))
         
         self.ratio=0
@@ -69,8 +70,9 @@ class Deformation(nn.Module):
         if self.no_grid:
             h = torch.cat([rays_pts_emb[:,:3],time_emb[:,:1]],-1)
         else:
-
-            grid_feature = self.grid(rays_pts_emb[:,:3], time_emb[:,:1])
+            """, time_emb[:,:1] 是NoneType """
+            # grid_feature = self.grid(rays_pts_emb[:,:3], time_emb[:,:1])
+            grid_feature = self.grid(rays_pts_emb[:, :3])
             # breakpoint()
             if self.grid_pe > 1:
                 grid_feature = poc_fre(grid_feature,self.grid_pe)
@@ -85,16 +87,18 @@ class Deformation(nn.Module):
     def get_empty_ratio(self):
         return self.ratio
     def forward(self, rays_pts_emb, scales_emb=None, rotations_emb=None, opacity = None,shs_emb=None, time_feature=None, time_emb=None):
-        if time_emb is None:
-            return self.forward_static(rays_pts_emb[:,:3])
-        else:
-            return self.forward_dynamic(rays_pts_emb, scales_emb, rotations_emb, opacity, shs_emb, time_feature, time_emb)
+        """ 他先进入 小deform 然后进入大deform 但他小deform的forward没有static的分支    他的static根本用不了 GitHub上提issue了 后面再看吧"""
+        # if time_emb is None:
+        #     return self.forward_static(rays_pts_emb[:,:3])
+        # else:
+        return self.forward_dynamic(rays_pts_emb, scales_emb, rotations_emb, opacity, shs_emb, time_feature, time_emb)
 
     def forward_static(self, rays_pts_emb):
         grid_feature = self.grid(rays_pts_emb[:,:3])
         dx = self.static_mlp(grid_feature)
         return rays_pts_emb[:, :3] + dx
     def forward_dynamic(self,rays_pts_emb, scales_emb, rotations_emb, opacity_emb, shs_emb, time_feature, time_emb):
+        """ timefeature他就没求 用的timesel 当timeemb  querytime 必须要要进入 只有那里做grid了 """
         hidden = self.query_time(rays_pts_emb, scales_emb, rotations_emb, time_feature, time_emb)
         if self.args.static_mlp:
             mask = self.static_mlp(hidden)
@@ -183,6 +187,7 @@ class deform_network(nn.Module):
         # print(self)
 
     def forward(self, point, scales=None, rotations=None, opacity=None, shs=None, times_sel=None):
+        """ 他先进入 小deform 然后进入大deform 但他小deform的forward没有static的分支    他的static根本用不了 GitHub上提issue了 后面再看吧"""
         return self.forward_dynamic(point, scales, rotations, opacity, shs, times_sel)
     @property
     def get_aabb(self):
@@ -207,8 +212,8 @@ class deform_network(nn.Module):
                                                 rotations_emb,
                                                 opacity,
                                                 shs,
-                                                None,
-                                                times_sel)
+                                                None)
+                                                # times_sel)
         return means3D, scales, rotations, opacity, shs
     def get_mlp_parameters(self):
         return self.deformation_net.get_mlp_parameters() + list(self.timenet.parameters())
