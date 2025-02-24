@@ -21,7 +21,7 @@ OptimizationParams = dict(
 
 ModelHiddenParams = dict(
 
-    multires = [1, 2],
+    multires = [1],
     defor_depth = 0,
     net_width = 64,
     plane_tv_weight = 0.0001,

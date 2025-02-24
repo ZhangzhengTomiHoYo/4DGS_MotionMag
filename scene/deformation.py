@@ -49,7 +49,7 @@ class Deformation(nn.Module):
             
             grid_out_dim = self.grid.feat_dim+(self.grid.feat_dim)*2 
         else:
-            grid_out_dim = self.grid.feat_dim
+            grid_out_dim = self.grid.feat_dim * 3
         if self.no_grid:
             self.feature_out = [nn.Linear(4,self.W)]
         else:

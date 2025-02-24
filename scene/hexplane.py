@@ -51,7 +51,7 @@ def init_grid_param(
         out_dim: int,
         reso: Sequence[int],
         a: float = 0.1,
-        b: float = 0.5):
+        b: float = 0.1):
     assert in_dim == len(reso), "Resolution must have same number of elements as input-dimension"
     has_time_planes = in_dim == 4
     assert grid_nd <= in_dim
@@ -69,6 +69,26 @@ def init_grid_param(
 
     return grid_coefs
 
+def init_delta_grid_param(
+        grid_nd: int,
+        in_dim: int,
+        out_dim: int,
+        reso: Sequence[int],
+        a: float = 0.1,
+        b: float = 0.2):
+    assert in_dim == len(reso), "Resolution must have same number of elements as input-dimension"
+    assert grid_nd <= in_dim
+    coo_combs = list(itertools.combinations(range(in_dim), grid_nd))
+    grid_coefs = nn.ParameterList()
+    for ci, coo_comb in enumerate(coo_combs):
+        new_grid_coef = nn.Parameter(torch.empty(
+            [1, out_dim] + [reso[cc] for cc in coo_comb[::-1]]
+        ))
+        nn.init.zeros_(new_grid_coef)
+        # nn.init.uniform_(new_grid_coef, a=a, b=b)
+        grid_coefs.append(new_grid_coef)
+
+    return grid_coefs
 
 def interpolate_ms_features(pts: torch.Tensor,
                             ms_grids: Collection[Iterable[nn.Module]],
@@ -79,12 +99,14 @@ def interpolate_ms_features(pts: torch.Tensor,
     coo_combs = list(itertools.combinations(
         range(pts.shape[-1]), grid_dimensions)
     )
+    hadamard = False
+    concat_features = False
     if num_levels is None:
         num_levels = len(ms_grids)
     multi_scale_interp = [] if concat_features else 0.
     grid: nn.ParameterList
     for scale_id,  grid in enumerate(ms_grids[:num_levels]):
-        interp_space = 1.
+        interp_space = 1. if hadamard else []
         for ci, coo_comb in enumerate(coo_combs):
             # interpolate in plane
             feature_dim = grid[ci].shape[1]  # shape of grid[ci]: 1, out_dim, *reso
@@ -93,8 +115,9 @@ def interpolate_ms_features(pts: torch.Tensor,
                 .view(-1, feature_dim)
             )
             # compute product over planes
-            interp_space = interp_space * interp_out_plane
-
+            interp_space = interp_space * interp_out_plane if hadamard else interp_space + [interp_out_plane]
+        if not hadamard:
+            interp_space = torch.cat(interp_space, dim=-1)
         # combine over scales
         if concat_features:
             multi_scale_interp.append(interp_space)
@@ -146,6 +169,24 @@ class HexPlaneField(nn.Module):
             self.grids.append(gp)
         # print(f"Initialized model grids: {self.grids}")
         print("feature_dim:",self.feat_dim)
+
+        self.delta_grids = nn.ModuleList()
+        for res in self.multiscale_res_multipliers:
+            config = self.grid_config[0].copy()
+            config["resolution"] = [
+                                       r * res for r in config["resolution"][:3]
+                                   ] + config["resolution"][3:]
+            gp = init_delta_grid_param(
+                grid_nd=config["grid_dimensions"],
+                in_dim=config["input_coordinate_dim"],
+                out_dim=config["output_coordinate_dim"],
+                reso=config["resolution"],
+            )
+            self.delta_grids.append(gp)
+
+            self.use_delta_features = False
+            self.delta_add_back = True
+
     @property
     def get_aabb(self):
         return self.aabb[0], self.aabb[1]
@@ -171,6 +212,15 @@ class HexPlaneField(nn.Module):
         if len(features) < 1:
             features = torch.zeros((0, 1)).to(features.device)
 
+        if self.use_delta_features:
+            delta_features = interpolate_ms_features(
+                pts, ms_grids=self.delta_grids,  # noqa
+                grid_dimensions=self.grid_config[0]["grid_dimensions"],
+                concat_features=self.concat_features, num_levels=None)
+            if self.delta_add_back:
+                features = delta_features + features
+            else:
+                features = delta_features
 
         return features
 
