@@ -75,7 +75,7 @@ def init_delta_grid_param(
         out_dim: int,
         reso: Sequence[int],
         a: float = 0.1,
-        b: float = 0.5):
+        b: float = 0.2):
     assert in_dim == len(reso), "Resolution must have same number of elements as input-dimension"
     assert grid_nd <= in_dim
     coo_combs = list(itertools.combinations(range(in_dim), grid_nd))
@@ -84,8 +84,8 @@ def init_delta_grid_param(
         new_grid_coef = nn.Parameter(torch.empty(
             [1, out_dim] + [reso[cc] for cc in coo_comb[::-1]]
         ))
-        # nn.init.zeros_(new_grid_coef)
-        nn.init.uniform_(new_grid_coef, a=a, b=b)
+        nn.init.zeros_(new_grid_coef)
+        # nn.init.uniform_(new_grid_coef, a=a, b=b)
         grid_coefs.append(new_grid_coef)
 
     return grid_coefs
@@ -99,12 +99,14 @@ def interpolate_ms_features(pts: torch.Tensor,
     coo_combs = list(itertools.combinations(
         range(pts.shape[-1]), grid_dimensions)
     )
+    hadamard = False
+    concat_features = False
     if num_levels is None:
         num_levels = len(ms_grids)
     multi_scale_interp = [] if concat_features else 0.
     grid: nn.ParameterList
     for scale_id,  grid in enumerate(ms_grids[:num_levels]):
-        interp_space = 1.
+        interp_space = 1. if hadamard else []
         for ci, coo_comb in enumerate(coo_combs):
             # interpolate in plane
             feature_dim = grid[ci].shape[1]  # shape of grid[ci]: 1, out_dim, *reso
@@ -113,8 +115,9 @@ def interpolate_ms_features(pts: torch.Tensor,
                 .view(-1, feature_dim)
             )
             # compute product over planes
-            interp_space = interp_space * interp_out_plane
-
+            interp_space = interp_space * interp_out_plane if hadamard else interp_space + [interp_out_plane]
+        if not hadamard:
+            interp_space = torch.cat(interp_space, dim=-1)
         # combine over scales
         if concat_features:
             multi_scale_interp.append(interp_space)
