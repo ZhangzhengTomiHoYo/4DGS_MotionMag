@@ -53,7 +53,10 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         if stage in checkpoint: 
             (model_params, first_iter) = torch.load(checkpoint)
             gaussians.restore(model_params, opt)
-
+    for n, p in gaussians._deformation.deformation_net.named_parameters():
+        if 'grid.grids.' in n:
+            p.requires_grad = False
+        print(f'{n} | {p.shape} | Trainable: {p.requires_grad}')
     gaussians._deformation.deformation_net.grid.use_delta_features = True #NOTE 训练000时间戳不使用
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
