@@ -245,8 +245,9 @@ def render_sets(dataset : ModelParams, hyperparam, iteration : int, pipeline : P
         file_name = "point_cloud/iteration_27000"
         gaussians_lst = []
         # 遍历编号目录
-        for i in range(30):  # 从 000 到 029
+        for i in range(1,30):  # 从 000 到 029
             sub_dir = f"{base_dir}/{i:03d}"  # 格式化为三位数字
+
             file_path = os.path.join(sub_dir, file_name)
             gaussians_tmp = GaussianModel(dataset.sh_degree, hyperparam)
             # 检查文件是否存在
@@ -255,27 +256,36 @@ def render_sets(dataset : ModelParams, hyperparam, iteration : int, pipeline : P
                 # 如果需要进一步处理文件，可以在这里操作
                 gaussians_tmp.load_model(file_path)
                 gaussians_lst.append(gaussians_tmp)
-                del gaussians_tmp
+                # gaussians_tmp
             else:
                 print(f"Not found: {file_path}")
         field_feature_imgs = {}
+        field_feature_imgs2 = {}
+
         for i in range(30):
             for n,p in gaussians_lst[i]._deformation.deformation_net.named_parameters():
                 if 'grid.grids.' in n:
-                    field_feature_imgs.setdefault(n,[]).append(p.clone().cpu())
+                    field_feature_imgs2.setdefault(n,[]).append(p.clone().cpu())
+
+            for n, p in gaussians_lst[i]._deformation.deformation_net.named_parameters():
+
+                if "delta_grids" in n:
+                    n2 = n.replace("delta_", "")
+                    x = field_feature_imgs2[n2][0]
+                    field_feature_imgs2.setdefault(n, []).append(p.data.clone().cpu() + x)
         #             print(n)
         #         print(f'{n} device is {p.device} !')
         # assert 1==2
         new_field_feature_imgs = {}
         for n, f_im in field_feature_imgs.items():
             print(f"Processing: {n}")
-            alpha = 200
-            low = 0.6
-            high = 7.5
+            alpha = 50
+            low = 1.5
+            high = 4.5
             fs = 30
             args = ''
             processed = process_feature_images(f_im, alpha, low, high, fs, 'cpu', args)
-            processed = process_feature_images(processed, alpha, low, high, fs, 'cpu', args)
+            # processed = process_feature_images(processed, alpha, low, high, fs, 'cpu', args)
             new_field_feature_imgs[n] = processed
         vis_grid_features(new_field_feature_imgs,'/root/autodl-tmp/4DGS_MotionMag/output/synthetic/mic_5Hz')
 

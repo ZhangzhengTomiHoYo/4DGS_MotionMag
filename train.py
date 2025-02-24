@@ -54,7 +54,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             (model_params, first_iter) = torch.load(checkpoint)
             gaussians.restore(model_params, opt)
 
-    # gaussians._deformation.deformation_net.grid.use_delta_features = True
+    gaussians._deformation.deformation_net.grid.use_delta_features = True #NOTE 训练000时间戳不使用
 
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
